@@ -1,0 +1,120 @@
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+import jakarta.persistence.*;
+
+public class HibernateCRUDApplication {
+
+    @Entity
+    @Table(name = "students")
+    public static class Student {
+
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private int id;
+
+        private String name;
+        private int age;
+
+        public Student() {}
+
+        public Student(String name, int age) {
+            this.name = name;
+            this.age = age;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public int getAge() {
+            return age;
+        }
+
+        public void setAge(int age) {
+            this.age = age;
+        }
+
+        @Override
+        public String toString() {
+            return "Student{id=" + id + ", name='" + name + "', age=" + age + '}';
+        }
+    }
+
+    public static class StudentDAO {
+
+        private static final SessionFactory factory = new Configuration().configure().addAnnotatedClass(Student.class).buildSessionFactory();
+
+     
+        public void createStudent(Student student) {
+            Session session = factory.openSession();
+            session.beginTransaction();
+            session.save(student);
+            session.getTransaction().commit();
+            session.close();
+        }
+
+        public Student readStudent(int id) {
+            Session session = factory.openSession();
+            Student student = session.get(Student.class, id);
+            session.close();
+            return student;
+        }
+
+        public void updateStudent(Student student) {
+            Session session = factory.openSession();
+            session.beginTransaction();
+            session.update(student);
+            session.getTransaction().commit();
+            session.close();
+        }
+
+        public void deleteStudent(int id) {
+            Session session = factory.openSession();
+            session.beginTransaction();
+            Student student = session.get(Student.class, id);
+            if (student != null) {
+                session.delete(student);
+            }
+            session.getTransaction().commit();
+            session.close();
+        }
+
+        public void close() {
+            factory.close();
+        }
+    }
+
+    public static void main(String[] args) {
+ 
+        StudentDAO dao = new StudentDAO();
+
+
+        Student s1 = new Student("Alice", 22);
+        dao.createStudent(s1);
+        System.out.println("Created: " + s1);
+
+        Student fetched = dao.readStudent(s1.getId());
+        System.out.println("Read: " + fetched);
+
+  
+        fetched.setAge(23);
+        dao.updateStudent(fetched);
+        System.out.println("Updated: " + dao.readStudent(fetched.getId()));
+
+
+        dao.deleteStudent(fetched.getId());
+        System.out.println("Deleted student with ID: " + fetched.getId());
+
+
+        dao.close();
+    }
+}
