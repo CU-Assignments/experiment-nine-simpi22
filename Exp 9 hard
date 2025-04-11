@@ -1,0 +1,99 @@
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
+import org.springframework.transaction.annotation.Transactional;
+import javax.persistence.*;
+
+@Entity
+@Table(name = "accounts")
+class Account {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int accountId;
+    private String accountHolderName;
+    private double balance;
+
+    public Account() {}
+    public Account(String accountHolderName, double balance) {
+        this.accountHolderName = accountHolderName;
+        this.balance = balance;
+    }
+    public int getAccountId() { return accountId; }
+    public String getAccountHolderName() { return accountHolderName; }
+    public double getBalance() { return balance; }
+    public void setBalance(double balance) { this.balance = balance; }
+}
+
+@Entity
+@Table(name = "transactions")
+class Transaction {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int transactionId;
+    @ManyToOne
+    @JoinColumn(name = "from_account_id")
+    private Account fromAccount;
+    @ManyToOne
+    @JoinColumn(name = "to_account_id")
+    private Account toAccount;
+    private double amount;
+
+    public Transaction() {}
+    public Transaction(Account fromAccount, Account toAccount, double amount) {
+        this.fromAccount = fromAccount;
+        this.toAccount = toAccount;
+        this.amount = amount;
+    }
+    public double getAmount() { return amount; }
+}
+
+class BankingService {
+    private SessionFactory sessionFactory;
+
+    public BankingService(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
+    }
+
+    @Transactional
+    public void transferMoney(int fromAccountId, int toAccountId, double amount) {
+        Session session = sessionFactory.getCurrentSession();
+
+        Account fromAccount = session.get(Account.class, fromAccountId);
+        Account toAccount = session.get(Account.class, toAccountId);
+
+        if (fromAccount.getBalance() < amount) {
+            throw new RuntimeException("Insufficient funds");
+        }
+
+        fromAccount.setBalance(fromAccount.getBalance() - amount);
+        toAccount.setBalance(toAccount.getBalance() + amount);
+
+        Transaction transaction = new Transaction(fromAccount, toAccount, amount);
+        session.save(transaction);
+
+        if (amount > 5000) {
+            throw new RuntimeException("Transaction amount is too high");
+        }
+    }
+}
+
+public class MainApp {
+    public static void main(String[] args) {
+        Configuration configuration = new Configuration();
+        configuration.configure("hibernate.cfg.xml");
+        SessionFactory sessionFactory = configuration.buildSessionFactory();
+
+        BankingService bankingService = new BankingService(sessionFactory);
+
+        try {
+            bankingService.transferMoney(1, 2, 1000);
+            System.out.println("Transaction Successful");
+
+            bankingService.transferMoney(1, 2, 6000);
+        } catch (Exception e) {
+            System.out.println("Transaction failed: " + e.getMessage());
+        } finally {
+            sessionFactory.close();
+        }
+    }
+}
